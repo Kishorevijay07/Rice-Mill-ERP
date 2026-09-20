@@ -1,7 +1,8 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
+import { pingHealth } from "@/lib/api";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -16,6 +17,12 @@ export function Providers({ children }: { children: ReactNode }) {
         },
       }),
   );
+
+  // Nudge the (free-tier, sleep-after-idle) backend awake as soon as the site
+  // opens, so it's warming while the user reads/types. Fire-and-forget.
+  useEffect(() => {
+    void pingHealth();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

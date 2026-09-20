@@ -61,3 +61,43 @@ export async function apiFetch<T>(
   }
   return (await response.json()) as T;
 }
+
+// ---- Backend wake-up (Render free tier sleeps after ~15 min idle) ----
+
+/** Backend origin (without the /api/v1 suffix) — /health lives at the root. */
+export const API_ORIGIN = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+
+/** Ping the public /health endpoint. Returns true if the server responded ok. */
+export async function pingHealth(timeoutMs = 12_000): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${API_ORIGIN}/health`, {
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Poll /health until the backend is awake. Resolves true as soon as it responds
+ * (immediately when already warm), or false after ~`maxWaitMs` of trying.
+ */
+export async function waitForBackend({
+  maxWaitMs = 120_000,
+  intervalMs = 2_500,
+}: { maxWaitMs?: number; intervalMs?: number } = {}): Promise<boolean> {
+  const deadline = Date.now() + maxWaitMs;
+  // First attempt is immediate — a warm server returns right away.
+  if (await pingHealth()) return true;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    if (await pingHealth()) return true;
+  }
+  return false;
+}

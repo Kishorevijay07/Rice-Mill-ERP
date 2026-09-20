@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useMe } from "@/lib/auth";
 import { AppShell } from "@/components/app-shell";
-import { Spinner } from "@/components/ui/misc";
+import { ServerWaking } from "@/components/ui/misc";
 
 export default function AuthenticatedLayout({
   children,
@@ -21,7 +21,7 @@ export default function AuthenticatedLayout({
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Spinner className="h-8 w-8" />
+        <ServerWaking />
       </div>
     );
   }

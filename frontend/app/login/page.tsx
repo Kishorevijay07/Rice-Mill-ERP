@@ -2,16 +2,16 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { ApiError } from "@/lib/api";
+import { ApiError, waitForBackend } from "@/lib/api";
 import { useLogin, useMe } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { ErrorNote } from "@/components/ui/misc";
+import { ErrorNote, ServerWaking } from "@/components/ui/misc";
 
 const schema = z.object({
   identifier: z.string().min(1, "Enter your username or email"),
@@ -24,6 +24,8 @@ export default function LoginPage() {
   const router = useRouter();
   const login = useLogin();
   const { data: me } = useMe();
+  const [waking, setWaking] = useState(false);
+  const [wakeFailed, setWakeFailed] = useState(false);
 
   useEffect(() => {
     if (me) router.replace("/invoices");
@@ -35,12 +37,24 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
-  function onSubmit(values: FormValues) {
+  async function onSubmit(values: FormValues) {
+    setWakeFailed(false);
+    // Make sure the (possibly asleep) backend is awake before we send the login,
+    // so it never hits a half-started service. Instant when already warm.
+    setWaking(true);
+    const ready = await waitForBackend();
+    setWaking(false);
+    if (!ready) {
+      setWakeFailed(true);
+      return;
+    }
     login.mutate(values, { onSuccess: () => router.replace("/invoices") });
   }
 
-  const errorMessage =
-    login.error instanceof ApiError
+  const busy = waking || login.isPending;
+  const errorMessage = wakeFailed
+    ? "Couldn't reach the server. Please check your connection and try again."
+    : login.error instanceof ApiError
       ? login.error.message
       : login.isError
         ? "Unable to sign in. Please try again."
@@ -58,26 +72,33 @@ export default function LoginPage() {
           </p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <Field label="Username or email" error={errors.identifier?.message}>
-              <Input
-                autoFocus
-                autoComplete="username"
-                {...register("identifier")}
-              />
-            </Field>
-            <Field label="Password" error={errors.password?.message}>
-              <Input
-                type="password"
-                autoComplete="current-password"
-                {...register("password")}
-              />
-            </Field>
-            <ErrorNote message={errorMessage} />
-            <Button type="submit" className="w-full" disabled={login.isPending}>
-              {login.isPending ? "Signing in…" : "Sign in"}
-            </Button>
-          </form>
+          {busy ? (
+            <ServerWaking />
+          ) : (
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <Field
+                label="Username or email"
+                error={errors.identifier?.message}
+              >
+                <Input
+                  autoFocus
+                  autoComplete="username"
+                  {...register("identifier")}
+                />
+              </Field>
+              <Field label="Password" error={errors.password?.message}>
+                <Input
+                  type="password"
+                  autoComplete="current-password"
+                  {...register("password")}
+                />
+              </Field>
+              <ErrorNote message={errorMessage} />
+              <Button type="submit" className="w-full">
+                Sign in
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </main>
