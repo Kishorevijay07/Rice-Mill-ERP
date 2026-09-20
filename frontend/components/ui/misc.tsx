@@ -114,26 +114,38 @@ export function ServerWaking({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex flex-col items-center gap-4 py-8 text-center",
+        "flex flex-col items-center gap-5 py-10 text-center",
         className,
       )}
       role="status"
       aria-live="polite"
     >
-      <div className="animate-bounce text-4xl">🌾</div>
-      <div className="flex items-center gap-1.5">
-        {[0, 1, 2].map((d) => (
-          <span
-            key={d}
-            className="h-2.5 w-2.5 animate-bounce rounded-full bg-primary"
-            style={{ animationDelay: `${d * 150}ms` }}
-          />
-        ))}
+      {/* Radar badge: pulsing rings behind a floating grain. */}
+      <div className="relative flex h-20 w-20 items-center justify-center">
+        <span className="absolute h-full w-full animate-ping rounded-full bg-primary/15" />
+        <span className="absolute h-14 w-14 rounded-full bg-primary/10" />
+        <span className="absolute h-11 w-11 rounded-full border border-primary/20" />
+        <span className="relative animate-bounce text-3xl [animation-duration:1.6s]">
+          🌾
+        </span>
       </div>
-      <p className="text-sm font-medium">{WAKING_MESSAGES[i]}</p>
-      <p className="max-w-xs text-xs text-muted-foreground">
-        The free server was asleep — this can take up to a minute the first
-        time. Hang tight!
+
+      {/* Rotating message, re-keyed so it fades in on each change. */}
+      <p
+        key={i}
+        className="animate-rm-fade text-sm font-semibold text-foreground"
+      >
+        {WAKING_MESSAGES[i]}
+      </p>
+
+      {/* Indeterminate progress sweep. */}
+      <div className="relative h-1.5 w-52 overflow-hidden rounded-full bg-muted">
+        <span className="absolute inset-y-0 left-0 w-1/2 animate-rm-slide rounded-full bg-primary/70" />
+      </div>
+
+      <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
+        Our free server was taking a nap 😴 — waking it up can take up to a
+        minute the first time. Hang tight!
       </p>
     </div>
   );

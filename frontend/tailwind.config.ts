@@ -35,6 +35,20 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      keyframes: {
+        "rm-fade": {
+          from: { opacity: "0", transform: "translateY(4px)" },
+          to: { opacity: "1", transform: "none" },
+        },
+        "rm-slide": {
+          "0%": { transform: "translateX(-140%)" },
+          "100%": { transform: "translateX(260%)" },
+        },
+      },
+      animation: {
+        "rm-fade": "rm-fade 0.45s ease",
+        "rm-slide": "rm-slide 1.4s ease-in-out infinite",
+      },
     },
   },
   plugins: [],
