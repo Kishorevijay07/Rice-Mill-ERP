@@ -190,6 +190,8 @@ class InvoiceDetail(InvoiceOut):
     bill_of_lading_lr_rr_no: str | None
     terms_of_delivery: str | None
     declaration: str | None
+    # Unguessable token behind the printed QR; lets the UI show a shareable link.
+    public_token: str
     is_interstate: bool
     lines: list[InvoiceLineOut]
     tax_summary: list[TaxSummaryRow]
@@ -200,3 +202,15 @@ class InvoiceDetail(InvoiceOut):
 class DocumentResponse(BaseModel):
     document_id: uuid.UUID
     filename: str
+
+
+class PublicInvoiceSummary(BaseModel):
+    """Minimal, non-sensitive summary shown on the public QR landing page."""
+
+    invoice_number: str
+    invoice_date: date
+    seller_name: str
+    buyer_name: str
+    grand_total: Decimal
+    currency: str
+    status: str

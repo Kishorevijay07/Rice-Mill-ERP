@@ -145,7 +145,7 @@ export function ServerWaking({ className }: { className?: string }) {
 
       <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
         server was taking a Time to wakeup 😴 — waking it up can take up to a
-        minute the first time. Hang tight!
+        minute the first time. Thank you for your patience!
       </p>
     </div>
   );

@@ -18,8 +18,13 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import get_settings
 from app.modules.documents.models import Document
-from app.modules.documents.service import store_document
+from app.modules.documents.service import (
+    get_document,
+    read_document_bytes,
+    store_document,
+)
 from app.modules.invoicing.models import (
     Buyer,
     InvoiceStatus,
@@ -471,6 +476,14 @@ def tax_words(invoice: TaxInvoice) -> str:
     return indian_amount_in_words(invoice.total_tax_amount, invoice.currency)
 
 
+def _qr_url(invoice: TaxInvoice) -> str | None:
+    """Public "scan to download" URL for the invoice, or None if no token yet."""
+    if not invoice.public_token:
+        return None
+    base = get_settings().public_app_base_url.rstrip("/")
+    return f"{base}/i?token={invoice.public_token}"
+
+
 def _render_pdf_bytes(db: Session, invoice: TaxInvoice) -> bytes:
     mill = get_or_create_mill_settings(db)
     return render_tax_invoice(
@@ -482,6 +495,7 @@ def _render_pdf_bytes(db: Session, invoice: TaxInvoice) -> bytes:
             amount_in_words=amount_words(invoice),
             tax_amount_in_words=tax_words(invoice),
             copies=DEFAULT_COPIES,
+            qr_url=_qr_url(invoice),
         )
     )
 
@@ -491,6 +505,34 @@ def render_pdf_bytes(db: Session, invoice_id: uuid.UUID) -> tuple[str, bytes]:
     invoice = _load_invoice(db, invoice_id)
     if not invoice.lines:
         raise InvalidStateError("Cannot render a PDF for an invoice with no lines")
+    return f"tax-invoice-{invoice.invoice_number}.pdf", _render_pdf_bytes(db, invoice)
+
+
+def get_invoice_by_token(db: Session, token: str) -> TaxInvoice:
+    """Look up an invoice by its public (QR) token. Powers the no-login endpoints."""
+    invoice = db.execute(
+        select(TaxInvoice)
+        .options(selectinload(TaxInvoice.lines))
+        .where(TaxInvoice.public_token == token)
+    ).scalar_one_or_none()
+    if invoice is None:
+        raise NotFoundError("Invoice not found")
+    return invoice
+
+
+def render_public_pdf_bytes(db: Session, token: str) -> tuple[str, bytes]:
+    """(filename, bytes) for the public QR download — prefer the stored PDF, else
+    re-render. Mirrors the authenticated download's fallback behaviour."""
+    invoice = get_invoice_by_token(db, token)
+    if not invoice.lines:
+        raise InvalidStateError("Cannot render a PDF for an invoice with no lines")
+    if invoice.pdf_document_id is not None:
+        try:
+            document = get_document(db, invoice.pdf_document_id)
+            return document.filename, read_document_bytes(document)
+        except Exception:
+            # Stored file unavailable (e.g. ephemeral disk wiped) — re-render.
+            pass
     return f"tax-invoice-{invoice.invoice_number}.pdf", _render_pdf_bytes(db, invoice)
 
 

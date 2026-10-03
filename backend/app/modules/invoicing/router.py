@@ -197,6 +197,7 @@ def _detail(db: Session, invoice: TaxInvoice) -> InvoiceDetail:
         bill_of_lading_lr_rr_no=invoice.bill_of_lading_lr_rr_no,
         terms_of_delivery=invoice.terms_of_delivery,
         declaration=invoice.declaration,
+        public_token=invoice.public_token,
         is_interstate=interstate,
         lines=[
             _line_out(ln, interstate) for ln in sorted(invoice.lines, key=lambda x: x.sort_order)

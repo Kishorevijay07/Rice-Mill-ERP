@@ -62,6 +62,46 @@ export async function apiFetch<T>(
   return (await response.json()) as T;
 }
 
+// ---- Public invoice (QR landing page — no auth) ----
+
+export interface PublicInvoiceSummary {
+  invoice_number: string;
+  invoice_date: string;
+  seller_name: string;
+  buyer_name: string;
+  grand_total: string;
+  currency: string;
+  status: string;
+}
+
+/**
+ * Fetch the public summary for an invoice by its QR token. No credentials —
+ * this is the unauthenticated, shareable view. Throws ApiError on failure.
+ */
+export async function getPublicInvoice(
+  token: string,
+): Promise<PublicInvoiceSummary> {
+  const res = await fetch(
+    `${API_BASE_URL}/public/invoices/${encodeURIComponent(token)}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) {
+    let body: ApiErrorBody;
+    try {
+      body = (await res.json()) as ApiErrorBody;
+    } catch {
+      body = { error: { code: "http_error", message: res.statusText } };
+    }
+    throw new ApiError(res.status, body);
+  }
+  return (await res.json()) as PublicInvoiceSummary;
+}
+
+/** Direct URL to the public PDF download (Content-Disposition drives the save). */
+export function publicInvoicePdfUrl(token: string): string {
+  return `${API_BASE_URL}/public/invoices/${encodeURIComponent(token)}/pdf`;
+}
+
 // ---- Backend wake-up (Render free tier sleeps after ~15 min idle) ----
 
 /** Backend origin (without the /api/v1 suffix) — /health lives at the root. */

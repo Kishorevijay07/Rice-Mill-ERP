@@ -5,7 +5,7 @@ lines on the GST tax invoice. Dependency-free and Decimal-based (never float).
 
 Style matches the Indian convention seen on Tally-style invoices, e.g.
 ``indian_amount_in_words(Decimal("570339")) ==
-"INR Five Lakhs Seventy Thousand Three Hundred and Thirty Nine"``.
+"INR Five Lakhs Seventy Thousand Three Hundred and Thirty Nine Only"``.
 """
 
 from __future__ import annotations
@@ -138,4 +138,4 @@ def indian_amount_in_words(amount: Decimal, currency: str = "INR") -> str:
     result = f"{currency} {words}".strip()
     if paise > 0:
         result += f" and {_number_words(paise)} Paise"
-    return result
+    return f"{result} Only"

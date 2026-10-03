@@ -35,5 +35,7 @@ services:
         value: "none" # cross-site cookie for Pages ↔ Render
       - key: CORS_ALLOW_ORIGINS
         sync: false # set to your Cloudflare Pages origin (no trailing slash)
+      - key: PUBLIC_APP_BASE_URL
+        sync: false # your Cloudflare Pages origin — the QR on invoices links here
       - key: LOG_JSON
         value: "true"

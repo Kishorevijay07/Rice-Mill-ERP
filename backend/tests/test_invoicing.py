@@ -91,17 +91,17 @@ def _invoice_payload(buyer_id: str, product_id: str) -> dict[str, object]:
 def test_amount_in_words() -> None:
     assert (
         indian_amount_in_words(Decimal("570339"))
-        == "INR Five Lakhs Seventy Thousand Three Hundred and Thirty Nine"
+        == "INR Five Lakhs Seventy Thousand Three Hundred and Thirty Nine Only"
     )
     assert (
         indian_amount_in_words(Decimal("27159"))
-        == "INR Twenty Seven Thousand One Hundred and Fifty Nine"
+        == "INR Twenty Seven Thousand One Hundred and Fifty Nine Only"
     )
-    assert indian_amount_in_words(Decimal("0")) == "INR Zero"
-    assert indian_amount_in_words(Decimal("100")) == "INR One Hundred"
+    assert indian_amount_in_words(Decimal("0")) == "INR Zero Only"
+    assert indian_amount_in_words(Decimal("100")) == "INR One Hundred Only"
     assert (
         indian_amount_in_words(Decimal("1234567.50"))
-        == "INR Twelve Lakhs Thirty Four Thousand Five Hundred and Sixty Seven and Fifty Paise"
+        == "INR Twelve Lakhs Thirty Four Thousand Five Hundred and Sixty Seven and Fifty Paise Only"
     )
 
 
@@ -123,9 +123,13 @@ def test_tax_invoice_totals_and_issue(client, make_user) -> None:
     assert Decimal(str(body["total_tax_amount"])) == Decimal("27159.00")
     assert Decimal(str(body["grand_total"])) == Decimal("570339.00")
     assert (
-        body["amount_in_words"] == "INR Five Lakhs Seventy Thousand Three Hundred and Thirty Nine"
+        body["amount_in_words"]
+        == "INR Five Lakhs Seventy Thousand Three Hundred and Thirty Nine Only"
     )
-    assert body["tax_amount_in_words"] == "INR Twenty Seven Thousand One Hundred and Fifty Nine"
+    assert (
+        body["tax_amount_in_words"]
+        == "INR Twenty Seven Thousand One Hundred and Fifty Nine Only"
+    )
     # Buyer snapshotted onto the invoice.
     assert body["buyer_gstin"] == "33BFWPP8062H1ZU"
     # Tax summary aggregates by HSN.
@@ -148,11 +152,12 @@ def test_tax_invoice_totals_and_issue(client, make_user) -> None:
     assert issued.json()["status"] == "ISSUED"
     assert issued.json()["pdf_document_id"] is not None
 
-    # The generated PDF downloads and is a real PDF.
+    # The generated PDF downloads and is a real PDF with exactly 1 page.
     pdf = client.get(f"/api/v1/tax-invoices/{invoice_id}/pdf/download")
     assert pdf.status_code == 200
     assert pdf.headers["content-type"] == "application/pdf"
     assert pdf.content[:5] == b"%PDF-"
+    assert pdf.content.count(b"/Type /Page\n") == 1
 
     # An issued invoice can no longer be edited.
     edit = client.put(
@@ -160,6 +165,46 @@ def test_tax_invoice_totals_and_issue(client, make_user) -> None:
     )
     assert edit.status_code == 409
     assert edit.json()["error"]["code"] == "invalid_state"
+
+
+def test_qr_png_is_a_png() -> None:
+    """The QR helper emits real PNG bytes (fpdf2 embeds PNG without Pillow)."""
+    from app.modules.invoicing.pdf import _qr_png
+
+    data = _qr_png("https://example.com/i?token=abc").getvalue()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_public_qr_invoice_access(client, make_user) -> None:
+    """Anyone with the unguessable token (from the printed QR) can view + download
+    the invoice with no login; an unknown token is a 404."""
+    _users(make_user)
+    _login(client, "owner", "owner-passphrase-1")
+    buyer_id = _buyer(client)
+    product_id = _product(client)
+    detail = client.post(
+        "/api/v1/tax-invoices", json=_invoice_payload(buyer_id, product_id)
+    ).json()
+    token = detail["public_token"]
+    assert token
+
+    # Drop the session cookie to prove the public endpoints need no auth.
+    client.cookies.clear()
+
+    summary = client.get(f"/api/v1/public/invoices/{token}")
+    assert summary.status_code == 200
+    body = summary.json()
+    assert body["invoice_number"] == "003"
+    assert body["buyer_name"] == "Vellaya Gounder Traders"
+    assert body["seller_name"]
+
+    pdf = client.get(f"/api/v1/public/invoices/{token}/pdf")
+    assert pdf.status_code == 200
+    assert pdf.headers["content-type"] == "application/pdf"
+    assert pdf.content[:5] == b"%PDF-"
+
+    # Unknown token → 404, not a data leak.
+    assert client.get("/api/v1/public/invoices/not-a-real-token/pdf").status_code == 404
 
 
 def test_eway_bill_upload(client, make_user) -> None:

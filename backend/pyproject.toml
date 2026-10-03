@@ -22,6 +22,9 @@ dependencies = [
     "python-multipart>=0.0.12,<0.1",
     "pwdlib[argon2]>=0.2.1,<0.3",
     "fpdf2>=2.8,<3",
+    # Pure-Python QR generator (no Pillow/binary deps) for the "scan to download"
+    # QR printed on invoices. Emits PNG that fpdf2 embeds natively.
+    "segno>=1.6,<2",
 ]
 
 [project.optional-dependencies]

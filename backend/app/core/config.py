@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
     cors_allow_origins: str = "http://localhost:3000"
+    # Public origin of the frontend (e.g. the Cloudflare Pages URL). Used to build
+    # absolute links printed into invoices — specifically the QR code that opens
+    # the public invoice page. No trailing slash (normalised when used).
+    public_app_base_url: str = "http://localhost:3000"
 
     # ---- Security / session ----
     secret_key: str = Field(min_length=16)

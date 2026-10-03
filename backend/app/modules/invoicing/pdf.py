@@ -9,15 +9,17 @@ Drop an OFL/public-domain Unicode TTF at ``assets/DejaVuSans.ttf`` (or set
 ``UNICODE_FONT_PATH``) to render the "Rupee" symbol instead — the renderer picks
 it up automatically and falls back cleanly when it is absent.
 
-One PDF may carry several copies (ORIGINAL/DUPLICATE/TRIPLICATE), one per page.
+One PDF carries a single page ("ORIGINAL FOR RECIPIENT").
 """
 
 from __future__ import annotations
 
+import io
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
+import segno
 from fpdf import FPDF
 
 from app.modules.invoicing.models import TaxInvoice, TaxInvoiceLine
@@ -45,8 +47,6 @@ _COLS = {
 
 DEFAULT_COPIES: tuple[str, ...] = (
     "ORIGINAL FOR RECIPIENT",
-    "DUPLICATE FOR TRANSPORTER",
-    "TRIPLICATE FOR SUPPLIER",
 )
 
 
@@ -67,6 +67,16 @@ class TaxInvoiceContext:
     amount_in_words: str
     tax_amount_in_words: str
     copies: tuple[str, ...] = DEFAULT_COPIES
+    # Absolute URL encoded into the "scan to download" QR (public invoice page).
+    qr_url: str | None = None
+
+
+def _qr_png(url: str, *, scale: int = 4) -> io.BytesIO:
+    """Render ``url`` as a PNG QR code (pure-Python segno; fpdf2 embeds PNG natively)."""
+    buf = io.BytesIO()
+    segno.make(url, error="m").save(buf, kind="png", scale=scale, border=1)
+    buf.seek(0)
+    return buf
 
 
 class _InvoicePDF(FPDF):
@@ -447,9 +457,19 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
     pdf.set_xy(x0 + 1.5, y + 7)
     pdf.set_font(pdf.family, "B", 8)
     pdf.cell(half - 3, 4, "Declaration")
+    # Reserve room on the right of this cell for the QR when present.
+    qr_size = 20.0
+    decl_w = half - 3 - (qr_size + 4 if ctx.qr_url else 0)
     pdf.set_xy(x0 + 1.5, y + 11)
     pdf.set_font(pdf.family, "", 7.5)
-    pdf.multi_cell(half - 3, 3.6, pdf.safe(inv.declaration or mill.invoice_declaration or ""))
+    pdf.multi_cell(decl_w, 3.6, pdf.safe(inv.declaration or mill.invoice_declaration or ""))
+    if ctx.qr_url:
+        qr_x = x0 + half - qr_size - 2.0
+        qr_y = y + 8.0
+        pdf.image(_qr_png(ctx.qr_url), x=qr_x, y=qr_y, w=qr_size, h=qr_size)
+        pdf.set_xy(qr_x - 2, qr_y + qr_size)
+        pdf.set_font(pdf.family, "", 6)
+        pdf.cell(qr_size + 4, 3, "Scan to download", align="C")
 
     pdf.rect(mid_x, y, half, foot_h)
     pdf.set_xy(mid_x + 1.5, y + 1.5)

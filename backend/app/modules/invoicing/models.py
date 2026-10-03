@@ -8,6 +8,7 @@ invoice. Money is NUMERIC — never float (rule 7); totals are computed server-s
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -43,6 +44,11 @@ _PCT = Numeric(5, 2)
 class InvoiceStatus(StrEnum):
     DRAFT = "DRAFT"
     ISSUED = "ISSUED"
+
+
+def _new_public_token() -> str:
+    """Unguessable token for public (QR-scan) invoice access. ~43 url-safe chars."""
+    return secrets.token_urlsafe(32)
 
 
 class Buyer(UUIDPrimaryKeyMixin, TimestampMixin, AuditActorMixin, Base):
@@ -88,6 +94,11 @@ class TaxInvoice(UUIDPrimaryKeyMixin, TimestampMixin, AuditActorMixin, Base):
     reference: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     # Human invoice number as printed (e.g. "003"); distinct from the reference.
     invoice_number: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    # Unguessable token behind the QR code — anyone with it can view/download this
+    # one invoice via the public (no-login) endpoints. Auto-generated on insert.
+    public_token: Mapped[str] = mapped_column(
+        String(64), unique=True, index=True, nullable=False, default=_new_public_token
+    )
     invoice_date: Mapped[date] = mapped_column(Date, nullable=False)
     status: Mapped[str] = mapped_column(
         String(16),
