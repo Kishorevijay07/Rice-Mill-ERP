@@ -324,6 +324,7 @@ export interface InvoiceLine {
   id: string;
   product_id: string | null;
   description: string;
+  bags?: number | null;
   hsn_sac: string | null;
   quantity: string;
   uom: string;

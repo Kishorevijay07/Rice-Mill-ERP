@@ -162,6 +162,7 @@ class TaxInvoiceLine(UUIDPrimaryKeyMixin, TimestampMixin, AuditActorMixin, Base)
         CheckConstraint("quantity >= 0", name="quantity_non_negative"),
         CheckConstraint("rate >= 0", name="rate_non_negative"),
         CheckConstraint("gst_rate >= 0", name="line_gst_rate_non_negative"),
+        CheckConstraint("bags IS NULL OR bags >= 0", name="bags_non_negative"),
     )
 
     invoice_id: Mapped[uuid.UUID] = mapped_column(
@@ -171,6 +172,7 @@ class TaxInvoiceLine(UUIDPrimaryKeyMixin, TimestampMixin, AuditActorMixin, Base)
         ForeignKey("products.id", ondelete="SET NULL"), nullable=True
     )
     description: Mapped[str] = mapped_column(String(1000), nullable=False)
+    bags: Mapped[int | None] = mapped_column(Integer, nullable=True)
     hsn_sac: Mapped[str | None] = mapped_column(String(16), nullable=True)
     quantity: Mapped[Decimal] = mapped_column(_QTY, nullable=False)
     uom: Mapped[str] = mapped_column(String(8), nullable=False, default="MT")

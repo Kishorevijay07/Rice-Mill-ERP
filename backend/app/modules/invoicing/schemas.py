@@ -67,6 +67,7 @@ class ProductOut(BaseModel):
 class InvoiceLineInput(BaseModel):
     product_id: uuid.UUID | None = None
     description: str = Field(min_length=1, max_length=1000)
+    bags: int | None = Field(default=None, ge=0)
     hsn_sac: str | None = Field(default=None, max_length=16)
     quantity: Decimal = Field(gt=0, max_digits=14, decimal_places=3)
     uom: str = Field(default="MT", min_length=1, max_length=8)
@@ -118,6 +119,7 @@ class InvoiceLineOut(BaseModel):
     id: uuid.UUID
     product_id: uuid.UUID | None
     description: str
+    bags: int | None = None
     hsn_sac: str | None
     quantity: Decimal
     uom: str

@@ -8,6 +8,7 @@ import { useHasPermission } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/format";
 import {
   type InvoiceLineInput,
+  formatLineDescription,
   useBuyers,
   useCreateInvoice,
   useInvoices,
@@ -29,6 +30,7 @@ import {
 type LineRow = {
   product_id: string;
   description: string;
+  bags: string;
   hsn_sac: string;
   quantity: string;
   uom: string;
@@ -39,6 +41,7 @@ type LineRow = {
 const EMPTY_ROW: LineRow = {
   product_id: "",
   description: "",
+  bags: "",
   hsn_sac: "",
   quantity: "",
   uom: "MT",
@@ -125,7 +128,15 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
       .filter((r) => r.description && r.quantity && r.rate)
       .map((r) => ({
         product_id: r.product_id || null,
-        description: r.description,
+        description: formatLineDescription(
+          r.description,
+          r.bags,
+          r.quantity,
+          r.uom,
+          r.rate,
+          r.gst_rate,
+        ),
+        bags: r.bags ? parseInt(r.bags, 10) : undefined,
         hsn_sac: r.hsn_sac || undefined,
         quantity: r.quantity,
         uom: r.uom,
@@ -245,7 +256,7 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Description" className="sm:col-span-4">
+                  <Field label="Description" className="sm:col-span-3">
                     <Input
                       value={row.description}
                       onChange={(e) =>
@@ -262,11 +273,22 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
                       }
                     />
                   </Field>
-                  <Field label="Qty" className="sm:col-span-1">
+                  <Field label="Bags" className="sm:col-span-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="e.g. 530"
+                      value={row.bags}
+                      onChange={(e) => updateRow(i, { bags: e.target.value })}
+                    />
+                  </Field>
+                  <Field label="Qty" className="sm:col-span-2">
                     <Input
                       type="number"
                       step="0.001"
                       min="0"
+                      placeholder="e.g. 24.69"
                       value={row.quantity}
                       onChange={(e) =>
                         updateRow(i, { quantity: e.target.value })
@@ -274,23 +296,24 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
                       required
                     />
                   </Field>
-                  <Field label="UOM" className="sm:col-span-1">
+                  <Field label="UOM" className="sm:col-span-2">
                     <Input
                       value={row.uom}
                       onChange={(e) => updateRow(i, { uom: e.target.value })}
                     />
                   </Field>
-                  <Field label="Rate" className="sm:col-span-2">
+                  <Field label="Rate" className="sm:col-span-3">
                     <Input
                       type="number"
                       step="0.0001"
                       min="0"
+                      placeholder="e.g. 22000"
                       value={row.rate}
                       onChange={(e) => updateRow(i, { rate: e.target.value })}
                       required
                     />
                   </Field>
-                  <Field label="GST %" className="sm:col-span-1">
+                  <Field label="GST %" className="sm:col-span-2">
                     <Input
                       type="number"
                       step="0.01"
@@ -301,7 +324,7 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
                       }
                     />
                   </Field>
-                  <div className="flex items-end justify-between sm:col-span-11">
+                  <div className="flex items-end justify-between sm:col-span-3">
                     <p className="text-xs text-muted-foreground">
                       Taxable {money(lineTaxable(row))} ·{" "}
                       {interstate
@@ -309,11 +332,11 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
                         : `CGST ${money(lineCgst(row))} · SGST ${money(lineCgst(row))}`}
                     </p>
                   </div>
-                  <div className="flex items-end sm:col-span-1">
+                  <div className="flex items-end justify-end sm:col-span-2">
                     {rows.length > 1 ? (
                       <button
                         type="button"
-                        className="text-xs text-red-600"
+                        className="text-xs text-red-600 hover:underline"
                         onClick={() =>
                           setRows((r) => r.filter((_, idx) => idx !== i))
                         }
@@ -321,6 +344,25 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
                         Remove
                       </button>
                     ) : null}
+                  </div>
+                  <div className="rounded border border-dashed border-border bg-muted/30 px-3 py-2 text-xs sm:col-span-12">
+                    <span className="font-semibold text-muted-foreground">
+                      Description of Goods Preview (on invoice):
+                    </span>
+                    <div className="mt-1 font-mono text-xs whitespace-pre-line text-foreground">
+                      {formatLineDescription(
+                        row.description,
+                        row.bags,
+                        row.quantity,
+                        row.uom,
+                        row.rate,
+                        row.gst_rate,
+                      ) || (
+                        <span className="italic text-muted-foreground">
+                          Fill in item details above
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

@@ -147,6 +147,7 @@ def _line_out(line: TaxInvoiceLine, interstate: bool) -> InvoiceLineOut:
         id=line.id,
         product_id=line.product_id,
         description=line.description,
+        bags=line.bags,
         hsn_sac=line.hsn_sac,
         quantity=line.quantity,
         uom=line.uom,

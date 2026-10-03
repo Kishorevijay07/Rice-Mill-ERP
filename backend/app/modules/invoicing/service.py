@@ -288,6 +288,41 @@ def _header_fields(data: InvoiceCreate | InvoiceUpdate) -> dict[str, object]:
     return {key: getattr(data, key) for key in keys}
 
 
+def format_invoice_line_description(
+    description: str,
+    bags: int | None,
+    quantity: Decimal,
+    uom: str,
+    rate: Decimal,
+    gst_rate: Decimal,
+) -> str:
+    """Format line description to include bags, weight and rate if not already present."""
+    desc_upper = description.upper()
+    if "BAGS" in desc_upper or "[" in description:
+        return description
+    if bags is None:
+        return description
+
+    lines: list[str] = [description.strip()] if description.strip() else []
+    uom_str = (uom or "MT").strip()
+    qty_str = (
+        f"{int(quantity)}"
+        if quantity % 1 == 0
+        else f"{quantity:.3f}".rstrip("0").rstrip(".")
+    )
+    lines.append(f"[{bags} BAGS,WT.{qty_str} {uom_str}]")
+
+    rate_str = (
+        f"{int(rate)}"
+        if rate % 1 == 0
+        else f"{rate:.4f}".rstrip("0").rstrip(".")
+    )
+    gst_suffix = " + GST" if gst_rate > Decimal("0") else ""
+    lines.append(f"RATE @{rate_str}/- {uom_str}{gst_suffix}")
+
+    return "\n".join(lines)
+
+
 def _build_lines(
     db: Session, invoice_id: uuid.UUID, inputs: list[InvoiceLineInput], actor: ActorContext
 ) -> list[TaxInvoiceLine]:
@@ -302,11 +337,20 @@ def _build_lines(
                 hsn = product.hsn_sac
         taxable = _money(item.quantity * item.rate)
         gst_amount = _money(taxable * item.gst_rate / _HUNDRED)
+        desc = format_invoice_line_description(
+            item.description,
+            item.bags,
+            item.quantity,
+            item.uom,
+            item.rate,
+            item.gst_rate,
+        )
         lines.append(
             TaxInvoiceLine(
                 invoice_id=invoice_id,
                 product_id=item.product_id,
-                description=item.description,
+                description=desc,
+                bags=item.bags,
                 hsn_sac=hsn,
                 quantity=item.quantity,
                 uom=item.uom,

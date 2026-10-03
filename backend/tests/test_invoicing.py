@@ -281,3 +281,33 @@ def test_staff_cannot_manage_masters_or_issue(client, make_user) -> None:
     assert client.post("/api/v1/buyers", json={"name": "X"}).status_code == 403
     assert client.post(f"/api/v1/tax-invoices/{invoice_id}/issue").status_code == 403
     assert client.get("/api/v1/tax-invoices").status_code == 200
+
+
+def test_invoice_line_bags_and_description_formatting(client, make_user) -> None:
+    _users(make_user)
+    _login(client, "owner", "owner-passphrase-1")
+    buyer_id = _buyer(client)
+    product_id = _product(client)
+
+    payload = {
+        "invoice_date": "2026-10-03",
+        "buyer_id": buyer_id,
+        "lines": [
+            {
+                "product_id": product_id,
+                "description": "RICE BRAN",
+                "bags": 530,
+                "quantity": "24.690",
+                "uom": "MT",
+                "rate": "22000.0000",
+                "gst_rate": "5.00",
+            }
+        ],
+    }
+    created = client.post("/api/v1/tax-invoices", json=payload)
+    assert created.status_code == 201
+    body = created.json()
+    line0 = body["lines"][0]
+    assert line0["bags"] == 530
+    assert line0["description"] == "RICE BRAN\n[530 BAGS,WT.24.69 MT]\nRATE @22000/- MT + GST"
+

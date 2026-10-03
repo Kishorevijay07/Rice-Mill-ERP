@@ -106,11 +106,68 @@ export function useCreateProduct() {
 export interface InvoiceLineInput {
   product_id?: string | null;
   description: string;
+  bags?: number | null;
   hsn_sac?: string;
   quantity: string;
   uom: string;
   rate: string;
   gst_rate: string;
+}
+
+export function formatLineDescription(
+  name: string,
+  bags?: string | number | null,
+  quantity?: string | number | null,
+  uom?: string | null,
+  rate?: string | number | null,
+  gstRate?: string | number | null,
+): string {
+  const trimmed = (name || "").trim();
+  if (trimmed.toUpperCase().includes("BAGS") || trimmed.includes("[")) {
+    return trimmed;
+  }
+  const lines: string[] = [];
+  if (trimmed) {
+    lines.push(trimmed);
+  }
+
+  const b =
+    bags !== undefined && bags !== null && String(bags).trim() !== ""
+      ? String(bags).trim()
+      : null;
+  const q =
+    quantity !== undefined &&
+    quantity !== null &&
+    String(quantity).trim() !== ""
+      ? String(quantity).trim()
+      : null;
+  const u = (uom || "MT").trim();
+
+  if (b && q) {
+    lines.push(`[${b} BAGS,WT.${q} ${u}]`);
+  } else if (b) {
+    lines.push(`[${b} BAGS]`);
+  } else if (q) {
+    lines.push(`[WT.${q} ${u}]`);
+  }
+
+  const r =
+    rate !== undefined && rate !== null && String(rate).trim() !== ""
+      ? String(rate).trim()
+      : null;
+  if (r) {
+    const num = parseFloat(r);
+    const rateStr = Number.isFinite(num)
+      ? num % 1 === 0
+        ? num.toString()
+        : num.toFixed(2)
+      : r;
+    const gstNum = parseFloat(gstRate ? String(gstRate) : "0");
+    const gstSuffix = gstNum > 0 ? " + GST" : "";
+    lines.push(`RATE @${rateStr}/- ${u}${gstSuffix}`);
+  }
+
+  return lines.join("\n");
 }
 
 export interface InvoiceInput {
