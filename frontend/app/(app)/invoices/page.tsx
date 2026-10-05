@@ -109,6 +109,9 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
       rate: p.default_rate ?? current.rate,
       gst_rate: p.default_gst_rate,
     });
+    if (!header.remarks || !header.remarks.trim()) {
+      setHeader((h) => ({ ...h, remarks: p.name }));
+    }
   }
 
   const taxable = rows.reduce((s, r) => s + lineTaxable(r), 0);
@@ -144,6 +147,12 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
         gst_rate: r.gst_rate || "0",
       }));
     if (lines.length === 0) return;
+    const derivedRemarks =
+      header.remarks ||
+      rows
+        .map((r) => ((r.description || "").split("\n")[0] ?? "").split("[")[0]?.trim() ?? "")
+        .filter(Boolean)[0] ||
+      undefined;
     create.mutate(
       {
         invoice_date: header.invoice_date,
@@ -153,7 +162,7 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
         destination: header.destination || undefined,
         motor_vehicle_no: header.motor_vehicle_no || undefined,
         delivery_note: header.delivery_note || undefined,
-        remarks: header.remarks || undefined,
+        remarks: derivedRemarks,
         lines,
       },
       { onSuccess: (inv) => router.push(`/invoices/view?id=${inv.id}`) },
@@ -232,6 +241,23 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
                   value={header.motor_vehicle_no}
                   onChange={(e) =>
                     setHeader({ ...header, motor_vehicle_no: e.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Delivery note">
+                <Input
+                  value={header.delivery_note}
+                  onChange={(e) =>
+                    setHeader({ ...header, delivery_note: e.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Remarks" className="sm:col-span-2">
+                <Input
+                  value={header.remarks}
+                  placeholder="e.g. RICE BRAN"
+                  onChange={(e) =>
+                    setHeader({ ...header, remarks: e.target.value })
                   }
                 />
               </Field>
@@ -478,12 +504,22 @@ export default function InvoicesPage() {
                     </td>
                     <td className="p-3">{formatMoney(inv.grand_total)}</td>
                     <td className="p-3 text-right">
-                      <Link
-                        href={`/invoices/view?id=${inv.id}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        Open
-                      </Link>
+                      <div className="inline-flex items-center gap-3">
+                        <Link
+                          href={`/invoices/view?id=${inv.id}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          Open
+                        </Link>
+                        {can("invoice.create") ? (
+                          <Link
+                            href={`/invoices/view?id=${inv.id}&edit=true`}
+                            className="font-medium text-muted-foreground hover:text-foreground hover:underline"
+                          >
+                            Edit
+                          </Link>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}

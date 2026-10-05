@@ -10,13 +10,15 @@ import {
   readRecentStateCodes,
   stateByCode,
 } from "@/lib/india-states";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
+import type { Buyer } from "@/lib/types";
 import {
   useBuyers,
   useCreateBuyer,
   useCreateProduct,
   useDeleteBuyer,
   useProducts,
+  useUpdateBuyer,
 } from "@/lib/invoicing";
 import { useMillSettings, useUpdateMillSettings } from "@/lib/settings";
 import { Button } from "@/components/ui/button";
@@ -168,8 +170,10 @@ const BUYER_FORM_INIT = {
 function Buyers({ canManage }: { canManage: boolean }) {
   const { data, isLoading } = useBuyers();
   const create = useCreateBuyer();
+  const update = useUpdateBuyer();
   const remove = useDeleteBuyer();
   const [form, setForm] = useState(BUYER_FORM_INIT);
+  const [editingBuyerId, setEditingBuyerId] = useState<string | null>(null);
   const [recentStates, setRecentStates] = useState<string[]>([]);
 
   useEffect(() => setRecentStates(readRecentStateCodes()), []);
@@ -184,16 +188,47 @@ function Buyers({ canManage }: { canManage: boolean }) {
     }));
   }
 
+  function startEdit(b: Buyer) {
+    setEditingBuyerId(b.id);
+    setForm({
+      name: b.name,
+      address: b.address ?? "",
+      gstin: b.gstin ?? "",
+      state_name: b.state_name ?? "",
+      state_code: b.state_code ?? "",
+      cell: b.cell ?? "",
+    });
+  }
+
+  function cancelEdit() {
+    setEditingBuyerId(null);
+    setForm(BUYER_FORM_INIT);
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    create.mutate(form, {
-      onSuccess: () => {
-        if (form.state_code) {
-          setRecentStates((r) => pushRecentStateCode(form.state_code, r));
-        }
-        setForm(BUYER_FORM_INIT);
-      },
-    });
+    if (editingBuyerId) {
+      update.mutate(
+        { id: editingBuyerId, input: form },
+        {
+          onSuccess: () => {
+            if (form.state_code) {
+              setRecentStates((r) => pushRecentStateCode(form.state_code, r));
+            }
+            cancelEdit();
+          },
+        },
+      );
+    } else {
+      create.mutate(form, {
+        onSuccess: () => {
+          if (form.state_code) {
+            setRecentStates((r) => pushRecentStateCode(form.state_code, r));
+          }
+          setForm(BUYER_FORM_INIT);
+        },
+      });
+    }
   }
 
   return (
@@ -214,12 +249,17 @@ function Buyers({ canManage }: { canManage: boolean }) {
                 <th className="py-2 font-medium">GSTIN</th>
                 <th className="py-2 font-medium">State</th>
                 <th className="py-2 font-medium">Cell</th>
-                {canManage ? <th className="py-2" /> : null}
+                {canManage ? <th className="py-2 text-right">Actions</th> : null}
               </tr>
             </thead>
             <tbody>
               {(data ?? []).map((b) => (
-                <tr key={b.id} className="border-b border-border last:border-0">
+                <tr
+                  key={b.id}
+                  className={`border-b border-border last:border-0 ${
+                    editingBuyerId === b.id ? "bg-muted/40" : ""
+                  }`}
+                >
                   <td className="py-2 font-medium">{b.name}</td>
                   <td className="py-2">{b.gstin ?? "—"}</td>
                   <td className="py-2">
@@ -229,24 +269,36 @@ function Buyers({ canManage }: { canManage: boolean }) {
                   <td className="py-2">{b.cell ?? "—"}</td>
                   {canManage ? (
                     <td className="py-2 text-right">
-                      <button
-                        type="button"
-                        aria-label={`Delete ${b.name}`}
-                        title="Delete buyer"
-                        className="text-muted-foreground hover:text-red-600 disabled:opacity-50"
-                        disabled={remove.isPending}
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `Delete buyer "${b.name}"? Past invoices and their PDFs are not affected.`,
-                            )
-                          ) {
-                            remove.mutate(b.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          aria-label={`Edit ${b.name}`}
+                          title="Edit buyer"
+                          className="text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                          onClick={() => startEdit(b)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Delete ${b.name}`}
+                          title="Delete buyer"
+                          className="text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50"
+                          disabled={remove.isPending}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `Delete buyer "${b.name}"? Past invoices and their PDFs are not affected.`,
+                              )
+                            ) {
+                              if (editingBuyerId === b.id) cancelEdit();
+                              remove.mutate(b.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   ) : null}
                 </tr>
@@ -259,6 +311,20 @@ function Buyers({ canManage }: { canManage: boolean }) {
             onSubmit={submit}
             className="grid gap-3 border-t border-border pt-4 sm:grid-cols-3"
           >
+            {editingBuyerId ? (
+              <div className="flex items-center justify-between rounded-md bg-muted/60 px-3 py-2 text-sm sm:col-span-3">
+                <span className="font-medium text-foreground">
+                  Editing buyer: <span className="text-primary">{form.name || "..."}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  Cancel editing
+                </button>
+              </div>
+            ) : null}
             <Field label="Name">
               <Input
                 value={form.name}
@@ -300,15 +366,33 @@ function Buyers({ canManage }: { canManage: boolean }) {
             <Field label="State code">
               <Input value={form.state_code} placeholder="auto" readOnly />
             </Field>
-            <div className="sm:col-span-3">
-              <ErrorNote message={msg(create.error)} />
+            <div className="sm:col-span-3 flex items-center gap-2">
+              <ErrorNote
+                message={msg(editingBuyerId ? update.error : create.error)}
+              />
               <Button
                 type="submit"
-                disabled={create.isPending}
+                disabled={editingBuyerId ? update.isPending : create.isPending}
                 className="mt-1"
               >
-                {create.isPending ? "Adding…" : "Add buyer"}
+                {editingBuyerId
+                  ? update.isPending
+                    ? "Saving…"
+                    : "Update buyer"
+                  : create.isPending
+                    ? "Adding…"
+                    : "Add buyer"}
               </Button>
+              {editingBuyerId ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelEdit}
+                  className="mt-1"
+                >
+                  Cancel
+                </Button>
+              ) : null}
             </div>
           </form>
         ) : null}

@@ -43,6 +43,18 @@ export function useCreateBuyer() {
   });
 }
 
+export function useUpdateBuyer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: BuyerInput }) =>
+      apiFetch<Buyer>(`/buyers/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["buyers"] }),
+  });
+}
+
 export function useDeleteBuyer() {
   const qc = useQueryClient();
   return useMutation({
@@ -210,6 +222,18 @@ export function useCreateInvoice() {
         body: JSON.stringify(input),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["tax-invoices"] }),
+  });
+}
+
+export function useUpdateInvoice(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: InvoiceInput) =>
+      apiFetch<TaxInvoiceDetail>(`/tax-invoices/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => invalidate(qc, id),
   });
 }
 

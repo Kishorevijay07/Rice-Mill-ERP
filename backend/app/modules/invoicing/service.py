@@ -392,10 +392,33 @@ def _next_invoice_number(db: Session, explicit: str | None) -> tuple[str, str]:
     return reference, f"{seq:03d}"
 
 
+def _derive_default_remarks(db: Session, lines: list[InvoiceLineInput]) -> str | None:
+    names: list[str] = []
+    for item in lines:
+        name: str | None = None
+        if item.product_id is not None:
+            prod = db.get(Product, item.product_id)
+            if prod and prod.name:
+                name = prod.name.strip()
+        if not name and item.description:
+            first_line = item.description.strip().split("\n")[0]
+            if "[" in first_line:
+                first_line = first_line.split("[")[0].strip()
+            if first_line:
+                name = first_line
+        if name and name not in names:
+            names.append(name)
+    return ", ".join(names) if names else None
+
+
 def create_invoice(db: Session, data: InvoiceCreate, actor: ActorContext) -> TaxInvoice:
     mill = get_or_create_mill_settings(db)
     reference, invoice_number = _next_invoice_number(db, data.invoice_number)
     snapshot = _resolve_buyer_snapshot(db, data)
+
+    remarks = data.remarks
+    if not remarks or not remarks.strip():
+        remarks = _derive_default_remarks(db, data.lines)
 
     invoice = TaxInvoice(
         reference=reference,
@@ -407,7 +430,8 @@ def create_invoice(db: Session, data: InvoiceCreate, actor: ActorContext) -> Tax
         created_by=actor.user_id,
         updated_by=actor.user_id,
         **snapshot,
-        **{k: v for k, v in _header_fields(data).items() if k != "declaration"},
+        **{k: v for k, v in _header_fields(data).items() if k not in ("declaration", "remarks")},
+        remarks=remarks,
     )
     db.add(invoice)
     db.flush()
@@ -437,14 +461,32 @@ def update_invoice(
     db: Session, invoice_id: uuid.UUID, data: InvoiceUpdate, actor: ActorContext
 ) -> TaxInvoice:
     invoice = _load_invoice(db, invoice_id)
-    if invoice.status != InvoiceStatus.DRAFT:
-        raise InvalidStateError("Only a DRAFT invoice can be edited")
+
+    if data.invoice_number and data.invoice_number != invoice.invoice_number:
+        existing = db.execute(
+            select(TaxInvoice).where(
+                TaxInvoice.invoice_number == data.invoice_number,
+                TaxInvoice.id != invoice.id,
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            raise ConflictError(f"Invoice number '{data.invoice_number}' already exists")
+        invoice.invoice_number = data.invoice_number
 
     snapshot = _resolve_buyer_snapshot(db, data)
     for key, value in snapshot.items():
         setattr(invoice, key, value)
     for key, value in _header_fields(data).items():
-        setattr(invoice, key, value)
+        if key not in ("declaration", "remarks"):
+            setattr(invoice, key, value)
+    if data.declaration is not None:
+        invoice.declaration = data.declaration
+
+    remarks = data.remarks
+    if not remarks or not remarks.strip():
+        remarks = _derive_default_remarks(db, data.lines)
+    invoice.remarks = remarks
+
     invoice.invoice_date = data.invoice_date
     invoice.updated_by = actor.user_id
 
@@ -456,6 +498,21 @@ def update_invoice(
     db.flush()
     db.refresh(invoice)
     _recompute_totals(invoice)
+
+    # Re-render and store PDF if invoice was already issued or has an existing PDF
+    if invoice.status == InvoiceStatus.ISSUED or invoice.pdf_document_id is not None:
+        document = store_document(
+            db,
+            entity_type=_INVOICE_ENTITY,
+            entity_id=invoice.id,
+            filename=f"tax-invoice-{invoice.invoice_number}.pdf",
+            content_type="application/pdf",
+            data=_render_pdf_bytes(db, invoice),
+            key_prefix="tax-invoices",
+            extension="pdf",
+            created_by=actor.user_id,
+        )
+        invoice.pdf_document_id = document.id
 
     record_audit(
         db,

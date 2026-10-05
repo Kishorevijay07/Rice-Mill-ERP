@@ -159,12 +159,13 @@ def test_tax_invoice_totals_and_issue(client, make_user) -> None:
     assert pdf.content[:5] == b"%PDF-"
     assert pdf.content.count(b"/Type /Page\n") == 1
 
-    # An issued invoice can no longer be edited.
-    edit = client.put(
-        f"/api/v1/tax-invoices/{invoice_id}", json=_invoice_payload(buyer_id, product_id)
-    )
-    assert edit.status_code == 409
-    assert edit.json()["error"]["code"] == "invalid_state"
+    # An issued invoice can be edited.
+    edit_payload = _invoice_payload(buyer_id, product_id)
+    edit_payload["remarks"] = "UPDATED RICE BRAN REMARKS"
+    edit = client.put(f"/api/v1/tax-invoices/{invoice_id}", json=edit_payload)
+    assert edit.status_code == 200
+    assert edit.json()["remarks"] == "UPDATED RICE BRAN REMARKS"
+    assert edit.json()["status"] == "ISSUED"
 
 
 def test_qr_png_is_a_png() -> None:
@@ -310,4 +311,28 @@ def test_invoice_line_bags_and_description_formatting(client, make_user) -> None
     line0 = body["lines"][0]
     assert line0["bags"] == 530
     assert line0["description"] == "RICE BRAN\n[530 BAGS,WT.24.69 MT]\nRATE @22000/- MT + GST"
+    # Auto-derived remarks from product name when omitted:
+    assert body["remarks"] == "RICE BRAN"
+
+
+def test_update_buyer(client, make_user) -> None:
+    _users(make_user)
+    _login(client, "owner", "owner-passphrase-1")
+    buyer_id = _buyer(client)
+
+    update_payload = {
+        "name": "Vellaya Gounder Traders Updated",
+        "address": "New Address, Tamil Nadu",
+        "gstin": "33BFWPP8062H1ZU",
+        "state_name": "Tamil Nadu",
+        "state_code": "33",
+        "cell": "9876543210",
+    }
+    resp = client.put(f"/api/v1/buyers/{buyer_id}", json=update_payload)
+    assert resp.status_code == 200
+    updated = resp.json()
+    assert updated["name"] == "Vellaya Gounder Traders Updated"
+    assert updated["cell"] == "9876543210"
+    assert updated["address"] == "New Address, Tamil Nadu"
+
 

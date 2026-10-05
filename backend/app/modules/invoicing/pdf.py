@@ -452,8 +452,18 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
     foot_h = 34.0
     pdf.rect(x0, y, half, foot_h)
     pdf.set_xy(x0 + 1.5, y + 1.5)
-    pdf.set_font(pdf.family, "B", 8)
-    pdf.cell(half - 3, 4, pdf.safe(f"Remarks: {inv.remarks or ''}"))
+    remarks_val = inv.remarks
+    if not remarks_val or not remarks_val.strip():
+        line_names = []
+        for ln in ctx.lines:
+            ln_desc = (ln.description or "").strip().split("\n")[0]
+            if "[" in ln_desc:
+                ln_desc = ln_desc.split("[")[0].strip()
+            if ln_desc and ln_desc not in line_names:
+                line_names.append(ln_desc)
+        if line_names:
+            remarks_val = ", ".join(line_names)
+    pdf.cell(half - 3, 4, pdf.safe(f"Remarks: {remarks_val or ''}"))
     pdf.set_xy(x0 + 1.5, y + 7)
     pdf.set_font(pdf.family, "B", 8)
     pdf.cell(half - 3, 4, "Declaration")
