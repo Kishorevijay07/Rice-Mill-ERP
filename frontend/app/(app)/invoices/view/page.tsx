@@ -705,6 +705,16 @@ function InvoiceView() {
                 </div>
               </>
             )}
+            {Number(inv.round_off) !== 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Round off</span>
+                <span>
+                  {Number(inv.round_off) > 0
+                    ? `+${formatMoney(inv.round_off)}`
+                    : formatMoney(inv.round_off)}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between font-semibold">
               <span>Grand total</span>
               <span>{formatMoney(inv.grand_total)}</span>

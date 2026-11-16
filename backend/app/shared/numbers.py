@@ -126,6 +126,33 @@ def gst_components(rate: Decimal, amount: Decimal, *, interstate: bool) -> GstCo
     return GstComponents(half_rate, cgst_amount, half_rate, sgst_amount, zero, zero)
 
 
+def round_invoice_total(raw_total: Decimal) -> tuple[Decimal, Decimal]:
+    """Round the invoice total and compute the round-off difference.
+
+    Rule:
+    - If the raw total has no paise (exact rupee), no rounding is needed (round_off = 0.00).
+    - If paise is less than 40 paise (< 0.40), round down to the nearest rupee.
+    - If paise is 40 paise or more (>= 0.40), round up to the next rupee.
+
+    Returns:
+        (grand_total, round_off)
+        where grand_total == raw_total + round_off
+    """
+    quantized = raw_total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    integer_part = Decimal(int(quantized))
+    paise = quantized - integer_part
+
+    if paise == Decimal("0.00"):
+        grand_total = integer_part.quantize(Decimal("0.01"))
+    elif paise < Decimal("0.40"):
+        grand_total = integer_part.quantize(Decimal("0.01"))
+    else:
+        grand_total = (integer_part + Decimal("1")).quantize(Decimal("0.01"))
+
+    round_off = (grand_total - quantized).quantize(Decimal("0.01"))
+    return grand_total, round_off
+
+
 def indian_amount_in_words(amount: Decimal, currency: str = "INR") -> str:
     """Render ``amount`` as words prefixed by the currency code.
 

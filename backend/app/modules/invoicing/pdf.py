@@ -320,6 +320,18 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
             pdf.cell(_COLS["amount"] - 1, 4, pdf.money(amt), align="R")
             y += 5.0
 
+    # Round Off row when invoice was rounded to nearest rupee.
+    if inv.round_off != Decimal("0.00"):
+        pdf.set_xy(xs["desc"] + 1, y + 1)
+        pdf.cell(_COLS["desc"] - 2, 4, "Round Off")
+        pdf.set_xy(xs["amount"], y + 1)
+        if inv.round_off < 0:
+            ro_val = f"(-) {pdf.money(abs(inv.round_off))}"
+        else:
+            ro_val = f"(+) {pdf.money(inv.round_off)}"
+        pdf.cell(_COLS["amount"] - 1, 4, ro_val, align="R")
+        y += 5.0
+
     # Pad the body to a minimum height, then draw column borders over the block.
     min_body_bottom = body_top + 45
     if y < min_body_bottom:

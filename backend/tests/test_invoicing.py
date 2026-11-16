@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from app.shared.numbers import indian_amount_in_words
+from app.shared.numbers import indian_amount_in_words, round_invoice_total
 
 
 def _login(client, identifier: str, password: str):
@@ -103,6 +103,24 @@ def test_amount_in_words() -> None:
         indian_amount_in_words(Decimal("1234567.50"))
         == "INR Twelve Lakhs Thirty Four Thousand Five Hundred and Sixty Seven and Fifty Paise Only"
     )
+
+
+def test_invoice_total_rounding() -> None:
+    # 0 paise -> unchanged
+    assert round_invoice_total(Decimal("50000.00")) == (Decimal("50000.00"), Decimal("0.00"))
+    # < 40 paise -> rounds down to 50000
+    assert round_invoice_total(Decimal("50000.01")) == (Decimal("50000.00"), Decimal("-0.01"))
+    assert round_invoice_total(Decimal("50000.25")) == (Decimal("50000.00"), Decimal("-0.25"))
+    assert round_invoice_total(Decimal("50000.39")) == (Decimal("50000.00"), Decimal("-0.39"))
+    # >= 40 paise -> rounds up to 50001
+    assert round_invoice_total(Decimal("50000.40")) == (Decimal("50001.00"), Decimal("0.60"))
+    assert round_invoice_total(Decimal("50000.41")) == (Decimal("50001.00"), Decimal("0.59"))
+    assert round_invoice_total(Decimal("50000.50")) == (Decimal("50001.00"), Decimal("0.50"))
+    assert round_invoice_total(Decimal("50000.99")) == (Decimal("50001.00"), Decimal("0.01"))
+    # Also verify sum property: grand_total == raw_total + round_off
+    for raw in ["50000.00", "50000.15", "50000.39", "50000.40", "50000.85"]:
+        gt, ro = round_invoice_total(Decimal(raw))
+        assert gt == Decimal(raw) + ro
 
 
 # --------------------------------------------------------------------------- #

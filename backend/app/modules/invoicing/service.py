@@ -49,7 +49,7 @@ from app.modules.settings.service import get_or_create_mill_settings
 from app.shared.audit import record_audit
 from app.shared.context import ActorContext
 from app.shared.errors import ConflictError, DomainError, InvalidStateError, NotFoundError
-from app.shared.numbers import indian_amount_in_words
+from app.shared.numbers import indian_amount_in_words, round_invoice_total
 from app.shared.reference import ReferencePrefix, generate_reference
 
 _INVOICE_ENTITY = "tax_invoice"
@@ -371,8 +371,10 @@ def _recompute_totals(invoice: TaxInvoice) -> None:
     tax = sum((line.gst_amount for line in invoice.lines), Decimal("0"))
     invoice.taxable_amount = _money(taxable)
     invoice.total_tax_amount = _money(tax)
-    invoice.round_off = Decimal("0.00")
-    invoice.grand_total = _money(taxable + tax)
+    raw_total = invoice.taxable_amount + invoice.total_tax_amount
+    grand_total, round_off = round_invoice_total(raw_total)
+    invoice.round_off = round_off
+    invoice.grand_total = grand_total
 
 
 def _next_invoice_number(db: Session, explicit: str | None) -> tuple[str, str]:

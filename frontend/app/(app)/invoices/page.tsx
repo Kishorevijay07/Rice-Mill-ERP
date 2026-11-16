@@ -116,6 +116,12 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
 
   const taxable = rows.reduce((s, r) => s + lineTaxable(r), 0);
   const tax = rows.reduce((s, r) => s + lineGst(r), 0);
+  const rawTotal = taxable + tax;
+  const cents = Math.round(rawTotal * 100);
+  const paise = cents % 100;
+  const grandTotal =
+    paise >= 40 ? Math.floor(cents / 100) + 1 : Math.floor(cents / 100);
+  const roundOff = paise === 0 ? 0 : Number((grandTotal - rawTotal).toFixed(2));
 
   // Inter-state (buyer in a different state) → IGST; same state → CGST + SGST.
   const selectedBuyer = (buyers ?? []).find((b) => b.id === header.buyer_id);
@@ -424,9 +430,17 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
                   </div>
                 </>
               )}
+              {roundOff !== 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Round off</span>
+                  <span>
+                    {roundOff > 0 ? `+${money(roundOff)}` : `-${money(Math.abs(roundOff))}`}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between font-semibold">
                 <span>Grand total</span>
-                <span>{money(taxable + tax)}</span>
+                <span>{money(grandTotal)}</span>
               </div>
             </div>
 
