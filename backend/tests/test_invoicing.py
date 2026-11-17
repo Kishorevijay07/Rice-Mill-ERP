@@ -123,6 +123,37 @@ def test_invoice_total_rounding() -> None:
         assert gt == Decimal(raw) + ro
 
 
+def test_bag_billing_calculation_and_formatting() -> None:
+    from app.modules.invoicing.service import _is_bag_billing, format_invoice_line_description
+
+    assert _is_bag_billing("BAG") is True
+    assert _is_bag_billing("BAGS") is True
+    assert _is_bag_billing("bag") is True
+    assert _is_bag_billing("MT") is False
+
+    # Bag-based line description with weight in MT
+    desc = format_invoice_line_description(
+        description="BOILED RICE",
+        bags=500,
+        quantity=Decimal("25.000"),
+        uom="BAG",
+        rate=Decimal("1200.0000"),
+        gst_rate=Decimal("5.00"),
+    )
+    assert desc == "BOILED RICE\n[500 BAGS,WT.25 MT]\nRATE @1200/- BAG + GST"
+
+    # Bag-based line description when only bags specified
+    desc2 = format_invoice_line_description(
+        description="BROKEN RICE",
+        bags=200,
+        quantity=Decimal("200"),
+        uom="BAG",
+        rate=Decimal("1100.0000"),
+        gst_rate=Decimal("5.00"),
+    )
+    assert desc2 == "BROKEN RICE\n[200 BAGS]\nRATE @1100/- BAG + GST"
+
+
 # --------------------------------------------------------------------------- #
 # Full flow
 # --------------------------------------------------------------------------- #

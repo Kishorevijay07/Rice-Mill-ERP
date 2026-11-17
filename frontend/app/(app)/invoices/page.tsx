@@ -9,6 +9,7 @@ import { formatDate, formatMoney } from "@/lib/format";
 import {
   type InvoiceLineInput,
   formatLineDescription,
+  isBagBilling,
   useBuyers,
   useCreateInvoice,
   useInvoices,
@@ -54,6 +55,12 @@ function money(n: number): string {
 }
 
 function lineTaxable(row: LineRow): number {
+  if (isBagBilling(row.uom)) {
+    const bags = parseInt(row.bags, 10);
+    const count =
+      Number.isFinite(bags) && bags > 0 ? bags : Number(row.quantity) || 0;
+    return count * (Number(row.rate) || 0);
+  }
   return (Number(row.quantity) || 0) * (Number(row.rate) || 0);
 }
 
@@ -330,9 +337,17 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
                   </Field>
                   <Field label="UOM" className="sm:col-span-2">
                     <Input
+                      list="uom-options"
                       value={row.uom}
+                      placeholder="MT / BAG"
                       onChange={(e) => updateRow(i, { uom: e.target.value })}
                     />
+                    <datalist id="uom-options">
+                      <option value="MT" />
+                      <option value="BAG" />
+                      <option value="BAGS" />
+                      <option value="KGS" />
+                    </datalist>
                   </Field>
                   <Field label="Rate" className="sm:col-span-3">
                     <Input
@@ -356,9 +371,14 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
                       }
                     />
                   </Field>
-                  <div className="flex items-end justify-between sm:col-span-3">
+                  <div className="flex items-end justify-between sm:col-span-5">
                     <p className="text-xs text-muted-foreground">
-                      Taxable {money(lineTaxable(row))} ·{" "}
+                      <span className="font-medium text-foreground">
+                        {isBagBilling(row.uom)
+                          ? `Billed by Bag: ${(parseInt(row.bags, 10) || Number(row.quantity) || 0)} BAGS × ${money(Number(row.rate) || 0)}`
+                          : `Billed by Qty: ${row.quantity || 0} ${row.uom || "MT"} × ${money(Number(row.rate) || 0)}`}
+                      </span>
+                      {" · "}Taxable {money(lineTaxable(row))} ·{" "}
                       {interstate
                         ? `IGST ${money(lineGst(row))}`
                         : `CGST ${money(lineCgst(row))} · SGST ${money(lineCgst(row))}`}

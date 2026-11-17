@@ -637,7 +637,11 @@ function InvoiceView() {
                   <td className="whitespace-pre-line p-2">{ln.description}</td>
                   <td className="p-2">{ln.hsn_sac || "—"}</td>
                   <td className="p-2">
-                    {ln.quantity} {ln.uom}
+                    {(ln.uom?.toUpperCase() === "BAG" ||
+                      ln.uom?.toUpperCase() === "BAGS") &&
+                    ln.bags
+                      ? `${ln.bags} BAGS`
+                      : `${ln.quantity} ${ln.uom}`}
                   </td>
                   <td className="p-2">{formatMoney(ln.rate)}</td>
                   <td className="p-2">{formatMoney(ln.taxable_amount)}</td>

@@ -287,13 +287,21 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
         desc_lines = str(line.description).split("\n")
         main_h = max(len(desc_lines) * 4.2 + 2, 10.0)
         # Sl / HSN / Qty / Rate / per / Amount cells for the main line.
+        is_bag = (line.uom or "").strip().upper() in ("BAG", "BAGS")
+        if is_bag and line.bags and line.bags > 0:
+            qty_text = f"{line.bags:,}"
+        elif line.quantity % 1 == 0:
+            qty_text = f"{int(line.quantity):,}"
+        else:
+            qty_text = f"{line.quantity:,.2f}"
+
         pdf.set_xy(xs["sl"], y + 1.5)
         pdf.cell(_COLS["sl"], 4, str(idx), align="C")
         _multiline(pdf, xs["desc"] + 1, y + 1.5, _COLS["desc"] - 2, desc_lines, 8, gap=4.2)
         pdf.set_xy(xs["hsn"], y + 1.5)
         pdf.cell(_COLS["hsn"], 4, pdf.safe(line.hsn_sac or ""), align="C")
         pdf.set_xy(xs["qty"], y + 1.5)
-        pdf.cell(_COLS["qty"] - 1, 4, f"{line.quantity:,.2f}", align="R")
+        pdf.cell(_COLS["qty"] - 1, 4, qty_text, align="R")
         pdf.set_xy(xs["rate"], y + 1.5)
         pdf.cell(_COLS["rate"] - 1, 4, pdf.money(line.rate), align="R")
         pdf.set_xy(xs["per"], y + 1.5)

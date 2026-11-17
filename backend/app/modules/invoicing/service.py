@@ -288,6 +288,10 @@ def _header_fields(data: InvoiceCreate | InvoiceUpdate) -> dict[str, object]:
     return {key: getattr(data, key) for key in keys}
 
 
+def _is_bag_billing(uom: str | None) -> bool:
+    return (uom or "").strip().upper() in ("BAG", "BAGS")
+
+
 def format_invoice_line_description(
     description: str,
     bags: int | None,
@@ -300,17 +304,29 @@ def format_invoice_line_description(
     desc_upper = description.upper()
     if "BAGS" in desc_upper or "[" in description:
         return description
-    if bags is None:
-        return description
 
     lines: list[str] = [description.strip()] if description.strip() else []
     uom_str = (uom or "MT").strip()
+    is_bag = _is_bag_billing(uom_str)
     qty_str = (
         f"{int(quantity)}"
         if quantity % 1 == 0
         else f"{quantity:.3f}".rstrip("0").rstrip(".")
     )
-    lines.append(f"[{bags} BAGS,WT.{qty_str} {uom_str}]")
+
+    if is_bag:
+        bag_count = bags if (bags and bags > 0) else (int(quantity) if quantity % 1 == 0 else qty_str)
+        if bags and quantity and str(bags) != qty_str:
+            lines.append(f"[{bag_count} BAGS,WT.{qty_str} MT]")
+        else:
+            lines.append(f"[{bag_count} BAGS]")
+        rate_uom = "BAG"
+    else:
+        if bags is not None:
+            lines.append(f"[{bags} BAGS,WT.{qty_str} {uom_str}]")
+        else:
+            lines.append(f"[WT.{qty_str} {uom_str}]")
+        rate_uom = uom_str
 
     rate_str = (
         f"{int(rate)}"
@@ -318,7 +334,7 @@ def format_invoice_line_description(
         else f"{rate:.4f}".rstrip("0").rstrip(".")
     )
     gst_suffix = " + GST" if gst_rate > Decimal("0") else ""
-    lines.append(f"RATE @{rate_str}/- {uom_str}{gst_suffix}")
+    lines.append(f"RATE @{rate_str}/- {rate_uom}{gst_suffix}")
 
     return "\n".join(lines)
 
@@ -335,7 +351,18 @@ def _build_lines(
                 raise NotFoundError(f"Product {item.product_id} not found")
             if hsn is None:
                 hsn = product.hsn_sac
-        taxable = _money(item.quantity * item.rate)
+
+        # When UOM is BAG/BAGS, calculate by bag count * rate
+        if _is_bag_billing(item.uom):
+            bag_count = (
+                item.bags
+                if (item.bags is not None and item.bags > 0)
+                else (int(item.quantity) if item.quantity > 0 else 0)
+            )
+            taxable = _money(Decimal(bag_count) * item.rate)
+        else:
+            taxable = _money(item.quantity * item.rate)
+
         gst_amount = _money(taxable * item.gst_rate / _HUNDRED)
         desc = format_invoice_line_description(
             item.description,

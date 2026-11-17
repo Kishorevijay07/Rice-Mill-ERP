@@ -126,6 +126,11 @@ export interface InvoiceLineInput {
   gst_rate: string;
 }
 
+export function isBagBilling(uom?: string | null): boolean {
+  const u = (uom || "").trim().toUpperCase();
+  return u === "BAG" || u === "BAGS";
+}
+
 export function formatLineDescription(
   name: string,
   bags?: string | number | null,
@@ -154,13 +159,23 @@ export function formatLineDescription(
       ? String(quantity).trim()
       : null;
   const u = (uom || "MT").trim();
+  const isBag = isBagBilling(u);
 
-  if (b && q) {
-    lines.push(`[${b} BAGS,WT.${q} ${u}]`);
-  } else if (b) {
-    lines.push(`[${b} BAGS]`);
-  } else if (q) {
-    lines.push(`[WT.${q} ${u}]`);
+  if (isBag) {
+    const bagCount = b || q;
+    if (b && q && b !== q) {
+      lines.push(`[${bagCount} BAGS,WT.${q} MT]`);
+    } else if (bagCount) {
+      lines.push(`[${bagCount} BAGS]`);
+    }
+  } else {
+    if (b && q) {
+      lines.push(`[${b} BAGS,WT.${q} ${u}]`);
+    } else if (b) {
+      lines.push(`[${b} BAGS]`);
+    } else if (q) {
+      lines.push(`[WT.${q} ${u}]`);
+    }
   }
 
   const r =
@@ -176,7 +191,8 @@ export function formatLineDescription(
       : r;
     const gstNum = parseFloat(gstRate ? String(gstRate) : "0");
     const gstSuffix = gstNum > 0 ? " + GST" : "";
-    lines.push(`RATE @${rateStr}/- ${u}${gstSuffix}`);
+    const rateUom = isBag ? "BAG" : u;
+    lines.push(`RATE @${rateStr}/- ${rateUom}${gstSuffix}`);
   }
 
   return lines.join("\n");
