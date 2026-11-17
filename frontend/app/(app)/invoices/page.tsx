@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Plus, Trash2, FileText, ChevronRight } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import { useHasPermission } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -276,130 +277,160 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
               </Field>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Line items</h3>
+                <span className="text-xs text-muted-foreground">{rows.length} {rows.length === 1 ? "item" : "items"}</span>
+              </div>
               {rows.map((row, i) => (
                 <div
                   key={i}
-                  className="grid gap-2 rounded-md border border-border p-3 sm:grid-cols-12"
+                  className="space-y-3 rounded-lg border border-border bg-card p-3 sm:p-4 shadow-sm"
                 >
-                  <Field label="Product" className="sm:col-span-3">
-                    <Select
-                      value={row.product_id}
-                      onChange={(e) => onPickProduct(i, e.target.value)}
-                    >
-                      <option value="">— custom —</option>
-                      {(products ?? []).map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <Field label="Description" className="sm:col-span-3">
-                    <Input
-                      value={row.description}
-                      onChange={(e) =>
-                        updateRow(i, { description: e.target.value })
-                      }
-                      required
-                    />
-                  </Field>
-                  <Field label="HSN/SAC" className="sm:col-span-2">
-                    <Input
-                      value={row.hsn_sac}
-                      onChange={(e) =>
-                        updateRow(i, { hsn_sac: e.target.value })
-                      }
-                    />
-                  </Field>
-                  <Field label="Bags" className="sm:col-span-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      placeholder="e.g. 530"
-                      value={row.bags}
-                      onChange={(e) => updateRow(i, { bags: e.target.value })}
-                    />
-                  </Field>
-                  <Field label="Qty" className="sm:col-span-2">
-                    <Input
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      placeholder="e.g. 24.69"
-                      value={row.quantity}
-                      onChange={(e) =>
-                        updateRow(i, { quantity: e.target.value })
-                      }
-                      required
-                    />
-                  </Field>
-                  <Field label="UOM" className="sm:col-span-2">
-                    <Input
-                      list="uom-options"
-                      value={row.uom}
-                      placeholder="MT / BAG"
-                      onChange={(e) => updateRow(i, { uom: e.target.value })}
-                    />
-                    <datalist id="uom-options">
-                      <option value="MT" />
-                      <option value="BAG" />
-                      <option value="BAGS" />
-                      <option value="KGS" />
-                    </datalist>
-                  </Field>
-                  <Field label="Rate" className="sm:col-span-3">
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      min="0"
-                      placeholder="e.g. 22000"
-                      value={row.rate}
-                      onChange={(e) => updateRow(i, { rate: e.target.value })}
-                      required
-                    />
-                  </Field>
-                  <Field label="GST %" className="sm:col-span-2">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={row.gst_rate}
-                      onChange={(e) =>
-                        updateRow(i, { gst_rate: e.target.value })
-                      }
-                    />
-                  </Field>
-                  <div className="flex items-end justify-between sm:col-span-5">
-                    <p className="text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">
-                        {isBagBilling(row.uom)
-                          ? `Billed by Bag: ${(parseInt(row.bags, 10) || Number(row.quantity) || 0)} BAGS × ${money(Number(row.rate) || 0)}`
-                          : `Billed by Qty: ${row.quantity || 0} ${row.uom || "MT"} × ${money(Number(row.rate) || 0)}`}
-                      </span>
-                      {" · "}Taxable {money(lineTaxable(row))} ·{" "}
-                      {interstate
-                        ? `IGST ${money(lineGst(row))}`
-                        : `CGST ${money(lineCgst(row))} · SGST ${money(lineCgst(row))}`}
-                    </p>
-                  </div>
-                  <div className="flex items-end justify-end sm:col-span-2">
+                  <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
+                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                      Item #{i + 1}
+                    </span>
                     {rows.length > 1 ? (
                       <button
                         type="button"
-                        className="text-xs text-red-600 hover:underline"
+                        aria-label={`Remove item ${i + 1}`}
+                        className="inline-flex items-center gap-1 text-xs text-destructive hover:text-destructive/80"
                         onClick={() =>
                           setRows((r) => r.filter((_, idx) => idx !== i))
                         }
                       >
-                        Remove
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Remove</span>
                       </button>
                     ) : null}
                   </div>
-                  <div className="rounded border border-dashed border-border bg-muted/30 px-3 py-2 text-xs sm:col-span-12">
-                    <span className="font-semibold text-muted-foreground">
-                      Description of Goods Preview (on invoice):
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Product preset">
+                      <Select
+                        value={row.product_id}
+                        onChange={(e) => onPickProduct(i, e.target.value)}
+                      >
+                        <option value="">— custom —</option>
+                        {(products ?? []).map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                    <Field label="Description">
+                      <Input
+                        value={row.description}
+                        placeholder="e.g. RICE BRAN"
+                        onChange={(e) =>
+                          updateRow(i, { description: e.target.value })
+                        }
+                        required
+                      />
+                    </Field>
+                  </div>
+
+                  {/* Units grid: 3-column on mobile & desktop */}
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <Field label="Bags">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="e.g. 530"
+                        value={row.bags}
+                        onChange={(e) => updateRow(i, { bags: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Qty / Weight">
+                      <Input
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        placeholder="e.g. 24.69"
+                        value={row.quantity}
+                        onChange={(e) =>
+                          updateRow(i, { quantity: e.target.value })
+                        }
+                        required
+                      />
+                    </Field>
+                    <Field label="UOM">
+                      <Input
+                        list="uom-options"
+                        value={row.uom}
+                        placeholder="MT / BAG"
+                        onChange={(e) => updateRow(i, { uom: e.target.value })}
+                      />
+                      <datalist id="uom-options">
+                        <option value="MT" />
+                        <option value="BAG" />
+                        <option value="BAGS" />
+                        <option value="KGS" />
+                      </datalist>
+                    </Field>
+                  </div>
+
+                  {/* Pricing grid: 3-column on mobile & desktop */}
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <Field label="HSN/SAC">
+                      <Input
+                        value={row.hsn_sac}
+                        placeholder="e.g. 23022020"
+                        onChange={(e) =>
+                          updateRow(i, { hsn_sac: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Rate (₹)">
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        placeholder="e.g. 22000"
+                        value={row.rate}
+                        onChange={(e) => updateRow(i, { rate: e.target.value })}
+                        required
+                      />
+                    </Field>
+                    <Field label="GST %">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="e.g. 5"
+                        value={row.gst_rate}
+                        onChange={(e) =>
+                          updateRow(i, { gst_rate: e.target.value })
+                        }
+                      />
+                    </Field>
+                  </div>
+
+                  {/* Live calculations pill */}
+                  <div className="rounded-md bg-muted/50 p-2.5 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-1">
+                      <span className="font-semibold text-foreground">
+                        {isBagBilling(row.uom)
+                          ? `Billed by Bag: ${(parseInt(row.bags, 10) || Number(row.quantity) || 0)} BAGS × ${money(Number(row.rate) || 0)}`
+                          : `Billed by Qty: ${row.quantity || 0} ${row.uom || "MT"} × ${money(Number(row.rate) || 0)}`}
+                      </span>
+                      <span className="font-medium text-foreground">
+                        Taxable: {money(lineTaxable(row))}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-muted-foreground">
+                      {interstate
+                        ? `IGST (${row.gst_rate || 0}%): ${money(lineGst(row))}`
+                        : `CGST: ${money(lineCgst(row))} · SGST: ${money(lineCgst(row))}`}
+                    </div>
+                  </div>
+
+                  <div className="rounded border border-dashed border-border bg-muted/20 px-3 py-2 text-xs">
+                    <span className="font-medium text-muted-foreground">
+                      Description preview on invoice:
                     </span>
                     <div className="mt-1 font-mono text-xs whitespace-pre-line text-foreground">
                       {formatLineDescription(
@@ -422,9 +453,11 @@ function NewInvoiceForm({ onClose }: { onClose: () => void }) {
                 type="button"
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 onClick={() => setRows((r) => [...r, { ...EMPTY_ROW }])}
               >
-                + Add line
+                <Plus className="mr-1.5 h-4 w-4" />
+                Add line item
               </Button>
             </div>
 
@@ -510,34 +543,74 @@ export default function InvoicesPage() {
         <EmptyState>No invoices yet.</EmptyState>
       ) : (
         <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border text-left text-muted-foreground">
+          {/* Mobile / Tablet card list (< lg) */}
+          <div className="divide-y divide-border lg:hidden">
+            {data.items.map((inv) => (
+              <div key={inv.id} className="p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-foreground text-base tracking-tight">
+                    #{inv.invoice_number}
+                  </span>
+                  <StatusPill status={inv.status} />
+                </div>
+                <div className="text-sm font-medium text-foreground">
+                  {inv.buyer_name}
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{formatDate(inv.invoice_date)}</span>
+                  <span className="text-sm font-bold text-foreground">
+                    {formatMoney(inv.grand_total)}
+                  </span>
+                </div>
+                <div className="pt-1 flex items-center justify-end gap-2 text-xs">
+                  <Link
+                    href={`/invoices/view?id=${inv.id}`}
+                    className="inline-flex min-h-[36px] items-center justify-center rounded-md bg-primary/10 px-3.5 py-1.5 font-medium text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    Open invoice
+                  </Link>
+                  {can("invoice.create") ? (
+                    <Link
+                      href={`/invoices/view?id=${inv.id}&edit=true`}
+                      className="inline-flex min-h-[36px] items-center justify-center rounded-md border border-border px-3.5 py-1.5 font-medium text-muted-foreground hover:bg-muted transition-colors"
+                    >
+                      Edit
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table (>= lg) */}
+          <div className="hidden lg:block overflow-x-auto rounded-md border border-border/50">
+            <table className="w-full min-w-[650px] text-sm">
+              <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
                 <tr>
-                  <th className="p-3 font-medium">Invoice No.</th>
-                  <th className="p-3 font-medium">Buyer</th>
-                  <th className="p-3 font-medium">Date</th>
-                  <th className="p-3 font-medium">Status</th>
-                  <th className="p-3 font-medium">Total</th>
-                  <th className="p-3" />
+                  <th className="px-4 py-2.5 font-medium whitespace-nowrap">Invoice No.</th>
+                  <th className="px-4 py-2.5 font-medium">Buyer</th>
+                  <th className="px-4 py-2.5 font-medium whitespace-nowrap">Date</th>
+                  <th className="px-4 py-2.5 font-medium whitespace-nowrap">Status</th>
+                  <th className="px-4 py-2.5 font-medium whitespace-nowrap">Total</th>
+                  <th className="px-4 py-2.5" />
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border/60">
                 {data.items.map((inv) => (
                   <tr
                     key={inv.id}
-                    className="border-b border-border last:border-0"
+                    className="hover:bg-muted/30 transition-colors"
                   >
-                    <td className="p-3 font-medium">{inv.invoice_number}</td>
-                    <td className="p-3">{inv.buyer_name}</td>
-                    <td className="p-3 text-muted-foreground">
+                    <td className="px-4 py-2.5 font-medium whitespace-nowrap">{inv.invoice_number}</td>
+                    <td className="px-4 py-2.5">{inv.buyer_name}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
                       {formatDate(inv.invoice_date)}
                     </td>
-                    <td className="p-3">
+                    <td className="px-4 py-2.5 whitespace-nowrap">
                       <StatusPill status={inv.status} />
                     </td>
-                    <td className="p-3">{formatMoney(inv.grand_total)}</td>
-                    <td className="p-3 text-right">
+                    <td className="px-4 py-2.5 font-semibold whitespace-nowrap">{formatMoney(inv.grand_total)}</td>
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-3">
                         <Link
                           href={`/invoices/view?id=${inv.id}`}

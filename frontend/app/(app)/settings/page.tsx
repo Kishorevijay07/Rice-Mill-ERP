@@ -242,48 +242,34 @@ function Buyers({ canManage }: { canManage: boolean }) {
         ) : (data?.length ?? 0) === 0 ? (
           <EmptyState>No buyers yet.</EmptyState>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b border-border text-left text-muted-foreground">
-              <tr>
-                <th className="py-2 font-medium">Name</th>
-                <th className="py-2 font-medium">GSTIN</th>
-                <th className="py-2 font-medium">State</th>
-                <th className="py-2 font-medium">Cell</th>
-                {canManage ? <th className="py-2 text-right">Actions</th> : null}
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Mobile / Tablet card list (< lg) */}
+            <div className="divide-y divide-border lg:hidden">
               {(data ?? []).map((b) => (
-                <tr
+                <div
                   key={b.id}
-                  className={`border-b border-border last:border-0 ${
-                    editingBuyerId === b.id ? "bg-muted/40" : ""
+                  className={`py-3.5 space-y-2.5 first:pt-0 last:pb-0 ${
+                    editingBuyerId === b.id ? "bg-primary/5 p-3 rounded-lg" : ""
                   }`}
                 >
-                  <td className="py-2 font-medium">{b.name}</td>
-                  <td className="py-2">{b.gstin ?? "—"}</td>
-                  <td className="py-2">
-                    {b.state_name ?? "—"}
-                    {b.state_code ? ` (${b.state_code})` : ""}
-                  </td>
-                  <td className="py-2">{b.cell ?? "—"}</td>
-                  {canManage ? (
-                    <td className="py-2 text-right">
-                      <div className="inline-flex items-center gap-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="font-semibold text-foreground text-sm leading-snug">
+                      {b.name}
+                    </span>
+                    {canManage ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           type="button"
                           aria-label={`Edit ${b.name}`}
-                          title="Edit buyer"
-                          className="text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                          className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-primary transition-colors disabled:opacity-50"
                           onClick={() => startEdit(b)}
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
                           aria-label={`Delete ${b.name}`}
-                          title="Delete buyer"
-                          className="text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50"
+                          className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
                           disabled={remove.isPending}
                           onClick={() => {
                             if (
@@ -296,15 +282,107 @@ function Buyers({ canManage }: { canManage: boolean }) {
                             }
                           }}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                    </td>
-                  ) : null}
-                </tr>
+                    ) : null}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground bg-muted/30 p-2.5 rounded-md">
+                    <div>
+                      <span className="block text-[11px] font-medium text-muted-foreground/80">GSTIN</span>
+                      <span className="font-mono text-foreground">{b.gstin ?? "—"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[11px] font-medium text-muted-foreground/80">State</span>
+                      <span className="text-foreground">
+                        {b.state_name ?? "—"}
+                        {b.state_code ? ` (${b.state_code})` : ""}
+                      </span>
+                    </div>
+                    {b.cell && (
+                      <div>
+                        <span className="block text-[11px] font-medium text-muted-foreground/80">Cell</span>
+                        <span className="text-foreground">{b.cell}</span>
+                      </div>
+                    )}
+                    {b.address && (
+                      <div className={b.cell ? "" : "col-span-2"}>
+                        <span className="block text-[11px] font-medium text-muted-foreground/80">Address</span>
+                        <span className="text-foreground truncate block">{b.address}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            {/* Desktop table (>= lg) */}
+            <div className="hidden lg:block overflow-x-auto rounded-md border border-border/50">
+              <table className="w-full min-w-[650px] text-sm">
+                <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">Name</th>
+                    <th className="px-4 py-2.5 font-medium whitespace-nowrap">GSTIN</th>
+                    <th className="px-4 py-2.5 font-medium whitespace-nowrap">State</th>
+                    <th className="px-4 py-2.5 font-medium whitespace-nowrap">Cell</th>
+                    {canManage ? <th className="px-4 py-2.5 text-right font-medium whitespace-nowrap">Actions</th> : null}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {(data ?? []).map((b) => (
+                    <tr
+                      key={b.id}
+                      className={`hover:bg-muted/30 transition-colors ${
+                        editingBuyerId === b.id ? "bg-muted/50" : ""
+                      }`}
+                    >
+                      <td className="px-4 py-2.5 font-medium text-foreground">{b.name}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs whitespace-nowrap">{b.gstin ?? "—"}</td>
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        {b.state_name ?? "—"}
+                        {b.state_code ? ` (${b.state_code})` : ""}
+                      </td>
+                      <td className="px-4 py-2.5 whitespace-nowrap">{b.cell ?? "—"}</td>
+                      {canManage ? (
+                        <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5 justify-end">
+                            <button
+                              type="button"
+                              aria-label={`Edit ${b.name}`}
+                              title="Edit buyer"
+                              className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-primary transition-colors disabled:opacity-50"
+                              onClick={() => startEdit(b)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Delete ${b.name}`}
+                              title="Delete buyer"
+                              className="p-1 rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
+                              disabled={remove.isPending}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `Delete buyer "${b.name}"? Past invoices and their PDFs are not affected.`,
+                                  )
+                                ) {
+                                  if (editingBuyerId === b.id) cancelEdit();
+                                  remove.mutate(b.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
         {canManage ? (
           <form
@@ -446,30 +524,70 @@ function Products({ canManage }: { canManage: boolean }) {
         ) : (data?.length ?? 0) === 0 ? (
           <EmptyState>No products yet.</EmptyState>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b border-border text-left text-muted-foreground">
-              <tr>
-                <th className="py-2 font-medium">Name</th>
-                <th className="py-2 font-medium">HSN/SAC</th>
-                <th className="py-2 font-medium">GST %</th>
-                <th className="py-2 font-medium">UOM</th>
-                <th className="py-2 font-medium">Rate</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Mobile / Tablet card list (< lg) */}
+            <div className="divide-y divide-border lg:hidden">
               {(data ?? []).map((p) => (
-                <tr key={p.id} className="border-b border-border last:border-0">
-                  <td className="py-2 font-medium">{p.name}</td>
-                  <td className="py-2">{p.hsn_sac ?? "—"}</td>
-                  <td className="py-2">{p.default_gst_rate}%</td>
-                  <td className="py-2">{p.default_uom}</td>
-                  <td className="py-2">
-                    {p.default_rate ? formatMoney(p.default_rate) : "—"}
-                  </td>
-                </tr>
+                <div key={p.id} className="py-3.5 space-y-2 first:pt-0 last:pb-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground text-sm">
+                      {p.name}
+                    </span>
+                    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-foreground">
+                      {p.default_uom}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground bg-muted/30 p-2.5 rounded-md">
+                    <div>
+                      <span className="block text-[11px] font-medium text-muted-foreground/80">HSN/SAC</span>
+                      <span className="font-mono text-foreground">{p.hsn_sac ?? "—"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[11px] font-medium text-muted-foreground/80">GST</span>
+                      <span className="font-medium text-foreground">{p.default_gst_rate}%</span>
+                    </div>
+                    <div>
+                      <span className="block text-[11px] font-medium text-muted-foreground/80">Default Rate</span>
+                      <span className="font-semibold text-foreground">
+                        {p.default_rate ? formatMoney(p.default_rate) : "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            {/* Desktop table (>= lg) */}
+            <div className="hidden lg:block overflow-x-auto rounded-md border border-border/50">
+              <table className="w-full min-w-[550px] text-sm">
+                <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">Name</th>
+                    <th className="px-4 py-2.5 font-medium whitespace-nowrap">HSN/SAC</th>
+                    <th className="px-4 py-2.5 font-medium whitespace-nowrap">GST %</th>
+                    <th className="px-4 py-2.5 font-medium whitespace-nowrap">UOM</th>
+                    <th className="px-4 py-2.5 font-medium whitespace-nowrap">Default Rate</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {(data ?? []).map((p) => (
+                    <tr
+                      key={p.id}
+                      className="hover:bg-muted/30 transition-colors"
+                    >
+                      <td className="px-4 py-2.5 font-medium text-foreground">{p.name}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs whitespace-nowrap">{p.hsn_sac ?? "—"}</td>
+                      <td className="px-4 py-2.5 whitespace-nowrap">{p.default_gst_rate}%</td>
+                      <td className="px-4 py-2.5 whitespace-nowrap">{p.default_uom}</td>
+                      <td className="px-4 py-2.5 font-medium whitespace-nowrap">
+                        {p.default_rate ? formatMoney(p.default_rate) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
         {canManage ? (
           <form

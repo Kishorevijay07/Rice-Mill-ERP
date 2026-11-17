@@ -191,9 +191,11 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
     sy = _multiline(pdf, x0 + 1.5, y + 2, half - 3, [mill.name], 12, bold=True, gap=6)
     seller_lines = [
         mill.address or "",
-        f"State : {mill.state_name or ''}   Code: {mill.state_code or ''}",
-        f"GSTIN/UIN : {mill.gstin or ''}",
-        f"E-Mail : {mill.contact_email or ''}",
+        f"State : {mill.state_name or ''}   Code: {mill.state_code or ''}"
+        if mill.state_name or mill.state_code
+        else "",
+        f"GSTIN/UIN : {mill.gstin}" if mill.gstin else "",
+        f"E-Mail : {mill.contact_email}" if mill.contact_email else "",
     ]
     _multiline_wrap(
         pdf, x0 + 1.5, sy, half - 4, [ln for ln in seller_lines if ln.strip()], 8, gap=4.2
@@ -224,9 +226,11 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
     by = _multiline(pdf, x0 + 1.5, y + 6, half - 3, [inv.buyer_name], 11, bold=True, gap=5.5)
     buyer_lines = [
         inv.buyer_address or "",
-        f"GSTIN/UIN : {inv.buyer_gstin or ''}",
-        f"State : {inv.buyer_state_name or ''}   Code : {inv.buyer_state_code or ''}",
-        f"CELL No: {inv.buyer_cell or ''}",
+        f"GSTIN/UIN : {inv.buyer_gstin}" if inv.buyer_gstin else "",
+        f"State : {inv.buyer_state_name or ''}   Code : {inv.buyer_state_code or ''}"
+        if inv.buyer_state_name or inv.buyer_state_code
+        else "",
+        f"CELL No: {inv.buyer_cell}" if inv.buyer_cell else "",
     ]
     _multiline_wrap(
         pdf, x0 + 1.5, by, half - 4, [ln for ln in buyer_lines if ln.strip()], 8, gap=4.2
@@ -267,7 +271,7 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
     pdf.set_fill_color(240, 240, 240)
     pdf.set_font(pdf.family, "B", 8)
     headers = [
-        ("sl", "Sl No.", "C"),
+        ("sl", "SI No.", "C"),
         ("desc", "Description of Goods", "L"),
         ("hsn", "HSN/SAC", "C"),
         ("qty", "Quantity", "C"),
@@ -312,18 +316,23 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
 
         # Tax sub-rows: IGST (inter-state) or CGST + SGST (intra-state).
         comp = gst_components(line.gst_rate, line.gst_amount, interstate=interstate)
+        def _fmt_rate(r: Decimal) -> str:
+            return f"{r:.2f}%" if r % 1 != 0 else f"{int(r)}%"
+
         if interstate:
-            sub_rows = [(f"OUTPUT IGST @ {comp.igst_rate:g}%", comp.igst_rate, comp.igst_amount)]
+            sub_rows = [(f"OUTPUT IGST @ {_fmt_rate(comp.igst_rate)}", _fmt_rate(comp.igst_rate), comp.igst_amount)]
         else:
             sub_rows = [
-                (f"OUTPUT CGST @ {comp.cgst_rate:g}%", comp.cgst_rate, comp.cgst_amount),
-                (f"OUTPUT SGST @ {comp.sgst_rate:g}%", comp.sgst_rate, comp.sgst_amount),
+                (f"OUTPUT CGST @ {_fmt_rate(comp.cgst_rate)}", _fmt_rate(comp.cgst_rate), comp.cgst_amount),
+                (f"OUTPUT SGST @ {_fmt_rate(comp.sgst_rate)}", _fmt_rate(comp.sgst_rate), comp.sgst_amount),
             ]
-        for label, rate_val, amt in sub_rows:
+        if sub_rows:
+            y += 2.0  # visual breathing room above tax rows
+        for label, rate_str, amt in sub_rows:
             pdf.set_xy(xs["desc"] + 1, y + 1)
             pdf.cell(_COLS["desc"] - 2, 4, pdf.safe(label))
             pdf.set_xy(xs["rate"], y + 1)
-            pdf.cell(_COLS["rate"] - 1, 4, f"{rate_val:g}%", align="R")
+            pdf.cell(_COLS["rate"] - 1, 4, rate_str, align="R")
             pdf.set_xy(xs["amount"], y + 1)
             pdf.cell(_COLS["amount"] - 1, 4, pdf.money(amt), align="R")
             y += 5.0
@@ -379,7 +388,7 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
             ("Taxable Value", 44.0),
             ("IGST Rate", 24.0),
             ("IGST Amount", 40.0),
-            ("Total TAX", 40.0),
+            ("Total TAX value", 40.0),
         ]
     else:
         ts_cols = [
@@ -389,7 +398,7 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
             ("CGST Amt", 27.0),
             ("SGST Rate", 16.0),
             ("SGST Amt", 27.0),
-            ("Total TAX", 36.0),
+            ("Total TAX value", 36.0),
         ]
     th = 6.5
     cx = x0
@@ -469,7 +478,7 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
     y += 6
 
     # ---- Remarks/Declaration (left) + Bank details (right) ----
-    foot_h = 34.0
+    foot_h = 36.0
     pdf.rect(x0, y, half, foot_h)
     pdf.set_xy(x0 + 1.5, y + 1.5)
     remarks_val = inv.remarks
@@ -484,13 +493,14 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
         if line_names:
             remarks_val = ", ".join(line_names)
     pdf.cell(half - 3, 4, pdf.safe(f"Remarks: {remarks_val or ''}"))
-    pdf.set_xy(x0 + 1.5, y + 7)
+    pdf.line(x0, y + 6.0, x0 + half, y + 6.0)
+    pdf.set_xy(x0 + 1.5, y + 7.5)
     pdf.set_font(pdf.family, "B", 8)
     pdf.cell(half - 3, 4, "Declaration")
     # Reserve room on the right of this cell for the QR when present.
     qr_size = 20.0
     decl_w = half - 3 - (qr_size + 4 if ctx.qr_url else 0)
-    pdf.set_xy(x0 + 1.5, y + 11)
+    pdf.set_xy(x0 + 1.5, y + 12)
     pdf.set_font(pdf.family, "", 7.5)
     pdf.multi_cell(decl_w, 3.6, pdf.safe(inv.declaration or mill.invoice_declaration or ""))
     if ctx.qr_url:
@@ -501,23 +511,33 @@ def _render_page(pdf: _InvoicePDF, ctx: TaxInvoiceContext, copy_label: str) -> N
         pdf.set_font(pdf.family, "", 6)
         pdf.cell(qr_size + 4, 3, "Scan to download", align="C")
 
+    # Right footer box: Bank details + Signature
     pdf.rect(mid_x, y, half, foot_h)
-    pdf.set_xy(mid_x + 1.5, y + 1.5)
+    bank_hdr_h = 5.5
+    pdf.rect(mid_x, y, half, bank_hdr_h, style="DF")
+    pdf.set_xy(mid_x, y + 1.0)
     pdf.set_font(pdf.family, "B", 8)
-    pdf.cell(half - 3, 4, "Company's Bank Details")
+    pdf.cell(half, 4, "Company's Bank Details", align="C")
+
     bank_lines = [
         f"A/c Holder's Name : {mill.bank_account_name or mill.name}",
-        f"Bank : {mill.bank_name or ''}",
+        f"BANK NAME : {mill.bank_name or ''}",
         f"A/c No. : {mill.bank_account_no or ''}",
         f"Branch : {mill.bank_branch or ''}",
-        f"IFSC Code : {mill.bank_ifsc or ''}",
+        f"IFSCCODE : {mill.bank_ifsc or ''}",
     ]
-    _multiline(pdf, mid_x + 1.5, y + 6, half - 3, bank_lines, 8, gap=4.2)
-    pdf.set_xy(mid_x + 1.5, y + foot_h - 12)
+    _multiline(pdf, mid_x + 1.5, y + bank_hdr_h + 1.5, half - 3, bank_lines, 7.5, gap=3.8)
+
+    # Dividing line before signature
+    sig_top = y + foot_h - 13.0
+    pdf.line(mid_x, sig_top, mid_x + half, sig_top)
+
+    pdf.set_xy(mid_x + 1.5, sig_top + 1.5)
     pdf.set_font(pdf.family, "B", 8)
     pdf.cell(half - 3, 4, pdf.safe(f"for {mill.name}"), align="R")
-    pdf.set_xy(mid_x + 1.5, y + foot_h - 4)
-    pdf.set_font(pdf.family, "", 7)
+
+    pdf.set_xy(mid_x + 1.5, y + foot_h - 4.5)
+    pdf.set_font(pdf.family, "", 7.5)
     pdf.cell(half - 3, 3, "Authorised Signatory", align="R")
 
 

@@ -8,7 +8,7 @@ export const Input = forwardRef<
   <input
     ref={ref}
     className={cn(
-      "h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50",
+      "h-10 w-full rounded-md border border-border bg-background px-3 text-base sm:text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50",
       className,
     )}
     {...props}
@@ -23,7 +23,7 @@ export const Select = forwardRef<
   <select
     ref={ref}
     className={cn(
-      "h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50",
+      "h-10 w-full rounded-md border border-border bg-background px-3 text-base sm:text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50",
       className,
     )}
     {...props}
